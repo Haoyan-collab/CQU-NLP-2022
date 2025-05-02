@@ -1,0 +1,51 @@
+import  numpy as np
+def my_viterbi(O,P,B,pi):
+    '''
+    O：观测序列
+    P：状态转移矩阵，Pij表示状态i到j转换的条件概率
+    B：观测矩阵，Bij表示状态i下观测到Oj的条件概率
+    pi：初始的状态概率分布
+    
+    return:各个时刻选择的状态id
+    '''
+    
+    set_O=list(set(O))
+#     观测结果有多少种类
+    class_observe=len(set_O)
+#     将观测序列one-hot化，不然会超过索引
+    for i in range(len(O)):
+        O[i]=set_O.index(O[i])
+#     进行若干检查
+    assert class_observe==B.shape[1],'观测序列与观测矩阵的观测结果维度不一致！'
+    assert P.shape[0]==B.shape[0],'转移矩阵与观测矩阵的状态维度不一致！'
+    assert P.shape[0]==len(pi),'转移矩阵与状态分布的状态维度不一致！'
+    sequence_len=len(O)# 观测序列长度，即有多少个时刻t
+    states_per_time=P.shape[0]# 每个时刻有多少个状态，这里假设相同。实际可以不同，不同的话，应该要给出每个时刻对应的状态集合。这里默认所有状态
+#     记录（局部）最优路径中节点（t时刻状态s）的概率值，当记录完毕后，逆序寻找最优节点即可
+    delta=np.zeros((sequence_len,states_per_time))
+#     记录经过t时刻状态s的局部最优路径的前一个状态id
+    w=np.zeros((sequence_len,states_per_time))
+#     初始化
+    for s in range(states_per_time):
+        delta[0,s]=pi[s]*B[s,O[0]]# 即状态概率分布乘以观测矩阵对应元素，得到0时刻各状态对应概率值
+    for t in range(1,sequence_len):
+        for s in range(states_per_time):
+            delta[t,s]=np.max([delta[t-1,s_]*P[s_,s] for s_ in range(states_per_time)])*B[s,O[t]]
+            w[t,s]=np.argmax([delta[t-1,s_]*P[s_,s] for s_ in range(states_per_time)])
+    max_sequence_prob=np.max(delta[-1,:])
+    res=np.zeros(sequence_len).astype(np.int32)
+    res[-1]=np.argmax(delta[-1,:])
+    for t in range(sequence_len-2,-1,-1):
+        res[t]=w[t+1,res[t+1]]
+    return res,max_sequence_prob
+
+
+# 状态转移矩阵
+P=np.array([[0.5,0.2,0.3],[0.3,0.5,0.2],[0.2,0.3,0.5]])
+# 状态生成观测矩阵
+B=np.array([[0.5,0.5],[0.4,0.6],[0.7,0.3]])
+# 观测序列，假设有2种观察结果，比如扔硬币，从0开始
+O=np.array([2,3,3])
+# 初始时各个状态出现的概率
+pi=np.array([0.2,0.4,0.4])
+res,prob=my_viterbi(O, P, B, pi)print(res)
